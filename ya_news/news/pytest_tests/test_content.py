@@ -14,14 +14,13 @@ class TestYaNewsContent:
             password='password1'
         )
 
-        # Creating news articles
         for i in range(12):
             News.objects.create(
                 title=f"News {i}",
                 text=f"Text for news {i}",
                 date=timezone.now()
             )
-        
+
         self.news = News.objects.first()
         self.comment1 = Comment.objects.create(
             news=self.news,
@@ -39,7 +38,7 @@ class TestYaNewsContent:
     def test_news_are_sorted_by_date(
             self,
             client
-        ):
+    ):
         response = client.get(
             reverse('news:home')
         )
