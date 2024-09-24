@@ -128,7 +128,7 @@ class TestYaNewsRoutes:
         assert response.status_code == 404
 
     def test_anonymous_user_redirected_to_login_on_comment_edit_delete(
-            self, 
+            self,
             client
     ):
         restricted_urls = [
