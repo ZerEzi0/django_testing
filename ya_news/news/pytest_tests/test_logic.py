@@ -7,7 +7,15 @@ from news.models import Comment
 class TestYaNewsLogic:
     @pytest.mark.skip(reason="No route for 'add_comment'")
     def test_anonymous_user_cannot_post_comment(self, client):
-        response = client.post(reverse('news:add_comment', kwargs={'pk': self.news.id}), {'text': 'New Comment'})
+        response = client.post(
+            reverse(
+                'news:add_comment',
+                kwargs={
+                    'pk': self.news.id
+                }
+            ),
+            {'text': 'New Comment'}
+        )
         assert response.status_code == 302
 
     @pytest.mark.skip(reason="No route for 'add_comment'")

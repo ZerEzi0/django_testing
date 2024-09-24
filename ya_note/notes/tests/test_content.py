@@ -54,7 +54,9 @@ class YaNoteContentTestCase(TestCase):
             reverse(
                 'notes:edit',
                 kwargs={
-            'slug': self.note1.slug
-        }))
+                    'slug': self.note1.slug
+                }
+            )
+        )
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.context['form'], NoteForm)
