@@ -43,7 +43,7 @@ class TestYaNewsContent:
             reverse('news:home')
         )
         news_list = response.context['news_list']
-        assert news_list[0].date >= news_list[len(news_list)-1].date
+        assert news_list[0].date >= news_list[len(news_list) - 1].date
 
     @pytest.mark.skip(reason="Comments not found in context")
     def test_comments_are_sorted_by_oldest_first(self, client):
@@ -51,7 +51,8 @@ class TestYaNewsContent:
             reverse(
                 'news:detail',
                 kwargs={'pk': self.news.id}
-        ))
+            )
+        )
         assert response.status_code == 200
         comments = response.context.get('comments', None)
         assert comments is not None, "No comments found in context"
@@ -62,7 +63,8 @@ class TestYaNewsContent:
             reverse(
                 'news:detail',
                 kwargs={'pk': self.news.id}
-        ))
+            )
+        )
         assert response.status_code == 200
         assert 'form' not in response.context
 
@@ -72,6 +74,7 @@ class TestYaNewsContent:
             reverse(
                 'news:detail',
                 kwargs={'pk': self.news.id}
-        ))
+            )
+        )
         assert response.status_code == 200
         assert 'form' in response.context
