@@ -55,8 +55,10 @@ def test_anonymous_user_redirected_to_login_on_note_detail(
     client,
     note
 ):
-    """Анонимный пользователь перенаправляется на страницу логина
-    при попытке доступа к деталям заметки."""
+    """
+    Анонимный пользователь перенаправляется на страницу логина
+    при попытке доступа к деталям заметки.
+    """
     url = reverse('notes:detail', kwargs={'slug': note.slug})
     login_url = str(settings.LOGIN_URL)
     expected_redirect_url = f"{login_url}?next={url}"

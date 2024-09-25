@@ -58,7 +58,7 @@ def test_main_page_contains_no_more_than_news_count(
     many_news
 ):
     """
-    Проверяет, что на главной странице 
+    Проверяет, что на главной странице
     не более NEWS_COUNT_ON_HOME_PAGE новостей.
     """
     url = reverse('news:home')

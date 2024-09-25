@@ -1,10 +1,8 @@
 import pytest
 from django.contrib.auth.models import User
 from django.test import Client
-from django.utils import timezone
 
 from notes.models import Note
-from pytils.translit import slugify
 
 
 @pytest.fixture

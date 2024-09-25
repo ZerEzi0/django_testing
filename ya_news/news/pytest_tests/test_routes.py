@@ -76,7 +76,10 @@ def test_authenticated_user_can_access_comment_form(
     authorized_client,
     news_item
 ):
-    """Авторизованный пользователь может получить доступ к форме комментариев на странице новости."""
+    """
+    Авторизованный пользователь может получить доступ
+    к форме комментариев на странице новости.
+    """
     url = reverse(
         'news:detail',
         kwargs={'pk': news_item.pk}
@@ -93,7 +96,10 @@ def test_anonymous_user_cannot_access_comment_form(
     client,
     news_item
 ):
-    """Анонимный пользователь не видит форму для добавления комментария на странице новости."""
+    """
+    Анонимный пользователь не видит форму
+    для добавления комментария на странице новости.
+    """
     url = reverse('news:detail', kwargs={'pk': news_item.pk})
     response = client.get(url)
     assert response.status_code == HTTPStatus.OK

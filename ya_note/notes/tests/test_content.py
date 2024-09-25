@@ -2,12 +2,14 @@ import pytest
 from django.urls import reverse
 
 from notes.forms import NoteForm
-from notes.models import Note
 
 
 @pytest.mark.django_db
 def test_note_in_object_list(author_client, another_user_client, note):
-    """Проверяет, что автор видит свою заметку в списке, а другой пользователь — нет."""
+    """
+    Проверяет, что автор видит свою заметку в списке,
+    а другой пользователь — нет.
+    """
     clients_expected = [
         (author_client, True),
         (another_user_client, False),
@@ -18,7 +20,8 @@ def test_note_in_object_list(author_client, another_user_client, note):
         object_list = response.context.get('object_list', [])
         note_in_list = note in object_list
         assert note_in_list == expected, (
-            f"Заметка должна {'присутствовать' if expected else 'отсутствовать'} "
+            f"Заметка должна " 
+            "{'присутствовать' if expected else 'отсутствовать'} "
             "в списке для данного пользователя."
         )
 
@@ -29,7 +32,7 @@ def test_note_form_in_creation_and_edit_pages(
     note
 ):
     """
-    Проверяет, что на страницах создания 
+    Проверяет, что на страницах создания
     и редактирования заметки передаётся форма NoteForm.
     """
     urls = [
