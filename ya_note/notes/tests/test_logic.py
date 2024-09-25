@@ -40,13 +40,13 @@ class YaNoteLogicTestCase(TestCase):
 
     def test_anonymous_user_cannot_create_note(self):
         response = self.client.post(
-            reverse('notes:add'),
-            {
+            reverse('notes:add'), {
                 'title': 'Anonymous Note',
                 'text': 'Text for anonymous note'
             }
         )
         self.assertRedirects(response, '/auth/login/?next=/notes/add/')
+
 
     def test_cannot_create_note_with_duplicate_slug(self):
         self.client.login(username='user1', password='password1')
