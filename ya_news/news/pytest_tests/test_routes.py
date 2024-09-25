@@ -43,34 +43,60 @@ def test_comment_deletion_accessible_to_author(authorized_client, comment):
     """Удаление комментария доступно автору."""
     url = reverse('news:delete', kwargs={'pk': comment.pk})
     response = authorized_client.post(url)
-    assert response.status_code == HTTPStatus.FOUND, "Автор должен иметь возможность удалить свой комментарий"
-    comment_exists = Comment.objects.filter(pk=comment.pk).exists()
+    assert response.status_code == HTTPStatus.FOUND, (
+        "Автор должен иметь возможность удалить свой комментарий"
+    )
+    comment_exists = Comment.objects.filter(
+        pk=comment.pk
+    ).exists()
     assert not comment_exists, "Комментарий должен быть удалён"
 
 
 @pytest.mark.django_db
-def test_comment_deletion_inaccessible_to_other_users(another_authorized_client, comment):
+def test_comment_deletion_inaccessible_to_other_users(
+    another_authorized_client,
+    comment
+):
     """Удаление комментария недоступно другим пользователям."""
     url = reverse('news:delete', kwargs={'pk': comment.pk})
     response = another_authorized_client.post(url)
-    assert response.status_code == HTTPStatus.NOT_FOUND, "Другой пользователь не должен иметь доступа к удалению комментария"
-    comment_exists = Comment.objects.filter(pk=comment.pk).exists()
-    assert comment_exists, "Комментарий не должен быть удалён другим пользователем"
+    assert response.status_code == HTTPStatus.NOT_FOUND, (
+        "Другой пользователь не должен иметь доступа к удалению комментария"
+    )
+    comment_exists = Comment.objects.filter(
+        pk=comment.pk
+    ).exists()
+    assert comment_exists, (
+        "Комментарий не должен быть удалён другим пользователем"
+    )
 
 
 @pytest.mark.django_db
-def test_authenticated_user_can_access_comment_form(authorized_client, news_item):
+def test_authenticated_user_can_access_comment_form(
+    authorized_client,
+    news_item
+):
     """Авторизованный пользователь может получить доступ к форме комментариев на странице новости."""
-    url = reverse('news:detail', kwargs={'pk': news_item.pk})
+    url = reverse(
+        'news:detail',
+        kwargs={'pk': news_item.pk}
+    )
     response = authorized_client.get(url)
     assert response.status_code == HTTPStatus.OK
-    assert 'form' in response.context, "Форма комментариев должна быть в контексте"
+    assert 'form' in response.context, (
+        "Форма комментариев должна быть в контексте"
+    )
 
 
 @pytest.mark.django_db
-def test_anonymous_user_cannot_access_comment_form(client, news_item):
+def test_anonymous_user_cannot_access_comment_form(
+    client,
+    news_item
+):
     """Анонимный пользователь не видит форму для добавления комментария на странице новости."""
     url = reverse('news:detail', kwargs={'pk': news_item.pk})
     response = client.get(url)
     assert response.status_code == HTTPStatus.OK
-    assert 'form' not in response.context, "Анонимный пользователь не должен видеть форму комментариев"
+    assert 'form' not in response.context, (
+        "Анонимный пользователь не должен видеть форму комментариев"
+    )

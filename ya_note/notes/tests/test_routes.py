@@ -20,7 +20,10 @@ def test_pages_accessible_by_anonymous_user(client, url_name):
 
 @pytest.mark.django_db
 def test_notes_list_redirects_anonymous_user_to_login(client):
-    """Анонимный пользователь перенаправляется на страницу логина при попытке доступа к списку заметок."""
+    """
+    Анонимный пользователь перенаправляется на страницу логина
+    при попытке доступа к списку заметок.
+    """
     url = reverse('notes:list')
     login_url = str(settings.LOGIN_URL)
     expected_redirect_url = f"{login_url}?next={url}"
@@ -31,8 +34,14 @@ def test_notes_list_redirects_anonymous_user_to_login(client):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('url_name', ['notes:add', 'notes:success'])
-def test_anonymous_user_redirected_to_login_on_restricted_pages(client, url_name):
-    """Анонимный пользователь перенаправляется на страницу логина при попытке доступа к закрытым страницам."""
+def test_anonymous_user_redirected_to_login_on_restricted_pages(
+    client,
+    url_name
+):
+    """
+    Анонимный пользователь перенаправляется на страницу логина
+    при попытке доступа к закрытым страницам.
+    """
     url = reverse(url_name)
     login_url = str(settings.LOGIN_URL)
     expected_redirect_url = f"{login_url}?next={url}"
@@ -42,8 +51,12 @@ def test_anonymous_user_redirected_to_login_on_restricted_pages(client, url_name
 
 
 @pytest.mark.django_db
-def test_anonymous_user_redirected_to_login_on_note_detail(client, note):
-    """Анонимный пользователь перенаправляется на страницу логина при попытке доступа к деталям заметки."""
+def test_anonymous_user_redirected_to_login_on_note_detail(
+    client,
+    note
+):
+    """Анонимный пользователь перенаправляется на страницу логина
+    при попытке доступа к деталям заметки."""
     url = reverse('notes:detail', kwargs={'slug': note.slug})
     login_url = str(settings.LOGIN_URL)
     expected_redirect_url = f"{login_url}?next={url}"
@@ -63,7 +76,10 @@ def test_note_detail_accessible_only_to_author(
     client_fixture,
     expected_status
 ):
-    """Страница заметки доступна только автору, остальные получают 404."""
+    """
+    Страница заметки доступна только автору,
+    остальные получают 404.
+    """
     client = request.getfixturevalue(client_fixture)
     url = reverse('notes:detail', kwargs={'slug': note.slug})
     response = client.get(url)
@@ -92,7 +108,10 @@ def test_note_edit_delete_accessible_only_to_author(
 
 @pytest.mark.django_db
 def test_authorized_user_can_access_notes_pages(author_client):
-    """Авторизованный пользователь может получить доступ к страницам заметок."""
+    """
+    Авторизованный пользователь может
+    получить доступ к страницам заметок.
+    """
     urls = [
         reverse('notes:list'),
         reverse('notes:add'),

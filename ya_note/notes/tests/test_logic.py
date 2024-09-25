@@ -16,7 +16,9 @@ def test_authenticated_user_can_create_note(author_client, note_form_data):
     assert Note.objects.count() == notes_count_before + 1
     new_note = Note.objects.latest('id')
     for field in note_form_data:
-        assert getattr(new_note, field) == note_form_data[field], f"Поле {field} не совпадает"
+        assert getattr(new_note, field) == note_form_data[field], (
+            f"Поле {field} не совпадает"
+        )
 
 
 @pytest.mark.django_db
@@ -62,7 +64,9 @@ def test_cannot_create_note_with_duplicate_slug(
     form = response.context.get('form')
     assert form is not None, "Форма отсутствует в контексте"
     assert 'slug' in form.errors, "Ошибки отсутствуют в поле 'slug'"
-    assert Note.objects.count() == notes_count_before, "Количество заметок не должно увеличиться при ошибке"
+    assert Note.objects.count() == notes_count_before, (
+        "Количество заметок не должно увеличиться при ошибке"
+    )
 
 
 @pytest.mark.django_db
@@ -78,7 +82,9 @@ def test_user_can_edit_own_note(author_client, note):
     assert response.status_code == HTTPStatus.FOUND
     note.refresh_from_db()
     for field in form_data:
-        assert getattr(note, field) == form_data[field], f"Поле {field} не обновлено"
+        assert getattr(note, field) == form_data[field], (
+            f"Поле {field} не обновлено"
+        )
 
 
 @pytest.mark.django_db
@@ -94,9 +100,15 @@ def test_user_cannot_edit_another_user_note(another_user_client, note):
     response = another_user_client.post(url, data=form_data)
     assert response.status_code == HTTPStatus.NOT_FOUND
     note.refresh_from_db()
-    assert note.title != form_data['title'], "Заголовок заметки не должен быть изменён"
-    assert note.text != form_data['text'], "Текст заметки не должен быть изменён"
-    assert Note.objects.count() == notes_count_before, "Количество заметок не должно измениться"
+    assert note.title != form_data['title'], (
+        "Заголовок заметки не должен быть изменён"
+    )
+    assert note.text != form_data['text'], (
+        "Текст заметки не должен быть изменён"
+    )
+    assert Note.objects.count() == notes_count_before, (
+        "Количество заметок не должно измениться"
+    )
 
 
 @pytest.mark.django_db
@@ -106,16 +118,27 @@ def test_user_can_delete_own_note(author_client, note):
     notes_count_before = Note.objects.count()
     response = author_client.post(url)
     assert response.status_code == HTTPStatus.FOUND
-    assert Note.objects.count() == notes_count_before - 1, "Количество заметок должно уменьшиться на 1"
-    assert not Note.objects.filter(slug=note.slug).exists(), "Заметка должна быть удалена"
+    assert Note.objects.count() == notes_count_before - 1, (
+        "Количество заметок должно уменьшиться на 1"
+    )
+    assert not Note.objects.filter(slug=note.slug).exists(), (
+        "Заметка должна быть удалена"
+    )
 
 
 @pytest.mark.django_db
-def test_user_cannot_delete_another_user_note(another_user_client, note):
+def test_user_cannot_delete_another_user_note(
+    another_user_client,
+    note
+):
     """Пользователь не может удалить чужую заметку."""
     url = reverse('notes:delete', kwargs={'slug': note.slug})
     notes_count_before = Note.objects.count()
     response = another_user_client.post(url)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert Note.objects.count() == notes_count_before, "Количество заметок не должно измениться"
-    assert Note.objects.filter(slug=note.slug).exists(), "Заметка не должна быть удалена другим пользователем"
+    assert Note.objects.count() == notes_count_before, (
+        "Количество заметок не должно измениться"
+    )
+    assert Note.objects.filter(slug=note.slug).exists(), (
+        "Заметка не должна быть удалена другим пользователем"
+    )
