@@ -39,16 +39,23 @@ class YaNoteLogicTestCase(TestCase):
         self.assertTrue(Note.objects.filter(title='New Note').exists())
 
     def test_anonymous_user_cannot_create_note(self):
-        response = self.client.post(reverse('notes:add'), {
-         'title': 'Anonymous Note', 'text': 'Text for anonymous note'
-        })
+        response = self.client.post(
+            reverse('notes:add'),
+            {
+                'title': 'Anonymous Note',
+                'text': 'Text for anonymous note'
+            }
+        )
         self.assertRedirects(response, '/auth/login/?next=/notes/add/')
 
     def test_cannot_create_note_with_duplicate_slug(self):
         self.client.login(username='user1', password='password1')
-        response = self.client.post(reverse('notes:add'), {
-         'title': 'Duplicate Slug Note', 'text': 'Text', 'slug': 'user1-note'
-        })
+        response = self.client.post(
+            reverse('notes:add'), {
+                'title': 'Duplicate Slug Note',
+                'text': 'Text', 'slug': 'user1-note'
+            }
+        )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Заметка с таким Slug уже существует.")
 
