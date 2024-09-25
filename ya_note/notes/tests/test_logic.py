@@ -33,7 +33,7 @@ class YaNoteLogicTestCase(TestCase):
         response = self.client.post(
             reverse(
                 'notes:add'
-                ),{'title': 'New Note', 'text': 'Text for new note'}
+            ), {'title': 'New Note', 'text': 'Text for new note'}
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Note.objects.filter(title='New Note').exists())
@@ -42,7 +42,10 @@ class YaNoteLogicTestCase(TestCase):
         response = self.client.post(
             reverse(
                 'notes:add'
-                ),{'title': 'Anonymous Note', 'text': 'Text for anonymous note'}
+            ), {
+                'title': 'Anonymous Note',
+                'text': 'Text for anonymous note'
+            }
         )
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, '/auth/login/?next=/notes/add/')
