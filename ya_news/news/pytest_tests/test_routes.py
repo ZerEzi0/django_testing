@@ -1,151 +1,76 @@
 import pytest
 from django.urls import reverse
-from django.contrib.auth.models import User
-from news.models import News, Comment
+from http import HTTPStatus
+
+from news.models import Comment
 
 
 @pytest.mark.django_db
-class TestYaNewsRoutes:
-    def setup_method(self):
-        self.user1 = User.objects.create_user(
-            username='user1',
-            password='password1'
-        )
-        self.user2 = User.objects.create_user(
-            username='user2',
-            password='password2'
-        )
+@pytest.mark.parametrize('url_name', [
+    'news:home',
+    'users:login',
+    'users:logout',
+    'users:signup',
+])
+def test_pages_accessible_by_anonymous_user(client, url_name):
+    """Страницы доступны анонимному пользователю."""
+    url = reverse(url_name)
+    response = client.get(url)
+    assert response.status_code == HTTPStatus.OK
 
-        self.news = News.objects.create(
-            title="Test News",
-            text="News Text"
-        )
-        self.comment = Comment.objects.create(
-            news=self.news,
-            author=self.user1,
-            text="User1's Comment"
-        )
 
-    def test_main_page_accessible_anonymous(self, client):
-        response = client.get(
-            reverse(
-                'news:home'
-            )
-        )
-        assert response.status_code == 200
+@pytest.mark.django_db
+def test_detail_page_accessible_by_anonymous_user(client, news_item):
+    """Страница новости доступна анонимному пользователю."""
+    url = reverse('news:detail', kwargs={'pk': news_item.pk})
+    response = client.get(url)
+    assert response.status_code == HTTPStatus.OK
 
-    def test_news_detail_page_accessible_anonymous(
-            self,
-            client
-    ):
-        response = client.get(
-            reverse(
-                'news:detail',
-                kwargs={
-                    'pk': self.news.id
-                }
-            )
-        )
-        assert response.status_code == 200
 
-    @pytest.mark.skip(reason="No route for 'add_comment'")
-    def test_anonymous_user_cannot_post_comment(self, client):
-        response = client.post(
-            reverse(
-                'news:add_comment',
-                kwargs={
-                    'pk': self.news.id
-                }
-            ),
-            {'text': 'New Comment'}
-        )
-        assert response.status_code == 302
+@pytest.mark.django_db
+def test_comment_deletion_requires_login(client, comment):
+    """Анонимный пользователь не может удалить комментарий."""
+    url = reverse('news:delete', kwargs={'pk': comment.pk})
+    response = client.post(url)
+    login_url = reverse('users:login')
+    expected_redirect_url = f"{login_url}?next={url}"
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == expected_redirect_url
 
-    @pytest.mark.skip(reason="No route for 'add_comment'")
-    def test_authenticated_user_can_post_comment(self, client):
-        client.login(username='user1', password='password1')
-        response = client.post(
-            reverse(
-                'news:add_comment',
-                kwargs={
-                    'pk': self.news.id
-                }
-            ),
-            {'text': 'New Comment'}
-        )
-        assert response.status_code == 302
-        assert Comment.objects.filter(text='New Comment').exists()
 
-    def test_comment_edit_delete_accessible_to_author_only(self, client):
-        client.login(
-            username='user1',
-            password='password1'
-        )
+@pytest.mark.django_db
+def test_comment_deletion_accessible_to_author(authorized_client, comment):
+    """Удаление комментария доступно автору."""
+    url = reverse('news:delete', kwargs={'pk': comment.pk})
+    response = authorized_client.post(url)
+    assert response.status_code == HTTPStatus.FOUND, "Автор должен иметь возможность удалить свой комментарий"
+    comment_exists = Comment.objects.filter(pk=comment.pk).exists()
+    assert not comment_exists, "Комментарий должен быть удалён"
 
-        response = client.get(
-            reverse(
-                'news:edit',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            )
-        )
-        assert response.status_code == 200
 
-        response = client.get(
-            reverse(
-                'news:delete',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            )
-        )
-        assert response.status_code == 200
+@pytest.mark.django_db
+def test_comment_deletion_inaccessible_to_other_users(another_authorized_client, comment):
+    """Удаление комментария недоступно другим пользователям."""
+    url = reverse('news:delete', kwargs={'pk': comment.pk})
+    response = another_authorized_client.post(url)
+    assert response.status_code == HTTPStatus.NOT_FOUND, "Другой пользователь не должен иметь доступа к удалению комментария"
+    comment_exists = Comment.objects.filter(pk=comment.pk).exists()
+    assert comment_exists, "Комментарий не должен быть удалён другим пользователем"
 
-        client.login(
-            username='user2',
-            password='password2'
-        )
 
-        response = client.get(
-            reverse(
-                'news:edit',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            )
-        )
-        assert response.status_code == 404
+@pytest.mark.django_db
+def test_authenticated_user_can_access_comment_form(authorized_client, news_item):
+    """Авторизованный пользователь может получить доступ к форме комментариев на странице новости."""
+    url = reverse('news:detail', kwargs={'pk': news_item.pk})
+    response = authorized_client.get(url)
+    assert response.status_code == HTTPStatus.OK
+    assert 'form' in response.context, "Форма комментариев должна быть в контексте"
 
-        response = client.get(
-            reverse(
-                'news:delete',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            )
-        )
-        assert response.status_code == 404
 
-    def test_anonymous_user_redirected_to_login_on_comment_edit_delete(
-            self,
-            client
-    ):
-        restricted_urls = [
-            reverse(
-                'news:edit',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            ),
-            reverse(
-                'news:delete',
-                kwargs={
-                    'pk': self.comment.pk
-                }
-            ),
-        ]
-
-        for url in restricted_urls:
-            response = client.get(url)
-            assert response.status_code == 302
+@pytest.mark.django_db
+def test_anonymous_user_cannot_access_comment_form(client, news_item):
+    """Анонимный пользователь не видит форму для добавления комментария на странице новости."""
+    url = reverse('news:detail', kwargs={'pk': news_item.pk})
+    response = client.get(url)
+    assert response.status_code == HTTPStatus.OK
+    assert 'form' not in response.context, "Анонимный пользователь не должен видеть форму комментариев"
