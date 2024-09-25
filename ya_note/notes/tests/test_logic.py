@@ -8,7 +8,7 @@ from notes.models import Note
 @pytest.mark.django_db
 class YaNoteLogicTestCase(TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = self.client
         self.user1 = User.objects.create_user(
             username='user1',
             password='password1'
@@ -25,23 +25,20 @@ class YaNoteLogicTestCase(TestCase):
         )
 
     def test_cannot_create_note_with_duplicate_slug(self):
-        self.client.login(username='user1', password='password1')
+        self.client.login(
+            username='user1',
+            password='password1'
+        )
         response = self.client.post(
             reverse(
                 'notes:add'
-            ),
+            ), 
             {
                 'title': 'Duplicate Slug Note',
-                'text': 'Text', 'slug': 'user1-note'
+                'text': 'Text',
+                'slug': 'user1-note'
             }
         )
         self.assertEqual(response.status_code, 200)
-
-        response_text = response.content.decode('utf-8')
-        print("\n\n=== Полный текст ответа ===")
-        print(f"Ответ сервера содержит {len(response_text)} символов")
-        print("Первые 500 символов ответа:\n")
-        print(response_text[:500])
-        print("\n=== Конец текста ===\n\n")
-
-        self.assertContains(response, "Note with this Slug already exists.")
+        
+        self.assertContains(response, "Заметка с таким Slug уже существует.")
