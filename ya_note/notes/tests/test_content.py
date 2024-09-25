@@ -20,9 +20,9 @@ def test_note_in_object_list(author_client, another_user_client, note):
         object_list = response.context.get('object_list', [])
         note_in_list = note in object_list
         assert note_in_list == expected, (
-            f"Заметка должна " 
-            "{'присутствовать' if expected else 'отсутствовать'} "
-            "в списке для данного пользователя."
+            f"Заметка должна "
+            f"{'присутствовать' if expected else 'отсутствовать'} "
+            f"в списке для данного пользователя."
         )
 
 
