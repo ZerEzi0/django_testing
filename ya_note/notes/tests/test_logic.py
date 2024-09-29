@@ -1,144 +1,143 @@
-import pytest
-from django.urls import reverse
-from pytils.translit import slugify
 from http import HTTPStatus
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import reverse
 
 from notes.models import Note
 
+from pytils.translit import slugify
 
-@pytest.mark.django_db
-def test_authenticated_user_can_create_note(author_client, note_form_data):
-    """Авторизованный пользователь может создать заметку."""
-    url = reverse('notes:add')
-    notes_count_before = Note.objects.count()
-    response = author_client.post(url, data=note_form_data)
-    assert response.status_code == HTTPStatus.FOUND
-    assert Note.objects.count() == notes_count_before + 1
-    new_note = Note.objects.latest('id')
-    for field in note_form_data:
-        assert getattr(new_note, field) == note_form_data[field], (
-            f"Поле {field} не совпадает"
+User = get_user_model()
+
+
+class TestNoteLogic(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username='user', password='pass')
+        cls.another_user = User.objects.create_user(
+            username='another_user',
+            password='pass'
         )
 
-
-@pytest.mark.django_db
-def test_anonymous_user_cannot_create_note(client, note_form_data):
-    """Анонимный пользователь не может создать заметку."""
-    url = reverse('notes:add')
-    response = client.post(url, data=note_form_data)
-    login_url = str(reverse('users:login'))
-    expected_redirect_url = f"{login_url}?next={url}"
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == expected_redirect_url
-    assert not Note.objects.filter(
-        title=note_form_data['title']
-    ).exists(), "Заметка не должна быть создана анонимным пользователем"
-
-
-@pytest.mark.django_db
-def test_slug_is_generated_if_not_provided(
-    author_client,
-    note_form_data_without_slug
-):
-    """Если slug не указан, он генерируется автоматически."""
-    url = reverse('notes:add')
-    response = author_client.post(url, data=note_form_data_without_slug)
-    assert response.status_code == HTTPStatus.FOUND
-    note = Note.objects.get(title=note_form_data_without_slug['title'])
-    expected_slug = slugify(note_form_data_without_slug['title'])
-    assert note.slug == expected_slug, "Slug не сгенерирован автоматически"
-
-
-@pytest.mark.django_db
-def test_cannot_create_note_with_duplicate_slug(
-    author_client,
-    note,
-    note_form_data
-):
-    """Невозможно создать две заметки с одинаковым slug."""
-    note_form_data['slug'] = note.slug
-    url = reverse('notes:add')
-    notes_count_before = Note.objects.count()
-    response = author_client.post(url, data=note_form_data)
-    assert response.status_code == HTTPStatus.OK
-    form = response.context.get('form')
-    assert form is not None, "Форма отсутствует в контексте"
-    assert 'slug' in form.errors, "Ошибки отсутствуют в поле 'slug'"
-    assert Note.objects.count() == notes_count_before, (
-        "Количество заметок не должно увеличиться при ошибке"
-    )
-
-
-@pytest.mark.django_db
-def test_user_can_edit_own_note(author_client, note):
-    """Пользователь может редактировать свою заметку."""
-    url = reverse('notes:edit', kwargs={'slug': note.slug})
-    form_data = {
-        'title': 'Edited Note',
-        'text': 'Edited Text',
-        'slug': note.slug,
-    }
-    response = author_client.post(url, data=form_data)
-    assert response.status_code == HTTPStatus.FOUND
-    note.refresh_from_db()
-    for field in form_data:
-        assert getattr(note, field) == form_data[field], (
-            f"Поле {field} не обновлено"
+        cls.note = Note.objects.create(
+            title='Existing Note',
+            text='Existing note text',
+            slug='existing-note',
+            author=cls.user
         )
 
+        cls.another_note = Note.objects.create(
+            title='Another User Note',
+            text='Another user note text',
+            slug='another-user-note',
+            author=cls.another_user
+        )
 
-@pytest.mark.django_db
-def test_user_cannot_edit_another_user_note(another_user_client, note):
-    """Пользователь не может редактировать чужую заметку."""
-    url = reverse('notes:edit', kwargs={'slug': note.slug})
-    form_data = {
-        'title': 'Edited by Another User',
-        'text': 'Edited Text',
-        'slug': note.slug,
-    }
-    notes_count_before = Note.objects.count()
-    response = another_user_client.post(url, data=form_data)
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    note.refresh_from_db()
-    assert note.title != form_data['title'], (
-        "Заголовок заметки не должен быть изменён"
-    )
-    assert note.text != form_data['text'], (
-        "Текст заметки не должен быть изменён"
-    )
-    assert Note.objects.count() == notes_count_before, (
-        "Количество заметок не должно измениться"
-    )
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.note_data = {
+            'title': 'Test Note',
+            'text': 'Note text',
+            'slug': 'test-note',
+        }
 
+    def test_logged_in_user_can_create_note(self):
+        notes_count_before = Note.objects.count()
+        response = self.client.post(reverse('notes:add'), data=self.note_data)
+        self.assertRedirects(response, reverse('notes:success'))
+        self.assertEqual(Note.objects.count(), notes_count_before + 1)
+        note = Note.objects.get(slug=self.note_data['slug'])
+        self.assertEqual(note.title, self.note_data['title'])
+        self.assertEqual(note.text, self.note_data['text'])
+        self.assertEqual(note.author, self.user)
 
-@pytest.mark.django_db
-def test_user_can_delete_own_note(author_client, note):
-    """Пользователь может удалить свою заметку."""
-    url = reverse('notes:delete', kwargs={'slug': note.slug})
-    notes_count_before = Note.objects.count()
-    response = author_client.post(url)
-    assert response.status_code == HTTPStatus.FOUND
-    assert Note.objects.count() == notes_count_before - 1, (
-        "Количество заметок должно уменьшиться на 1"
-    )
-    assert not Note.objects.filter(slug=note.slug).exists(), (
-        "Заметка должна быть удалена"
-    )
+    def test_anonymous_user_cannot_create_note(self):
+        self.client.logout()
+        notes_count_before = Note.objects.count()
+        response = self.client.post(reverse('notes:add'), data=self.note_data)
+        self.assertEqual(Note.objects.count(), notes_count_before)
+        login_url = reverse('users:login')
+        expected_redirect = f'{login_url}?next={reverse("notes:add")}'
+        self.assertRedirects(response, expected_redirect)
 
+    def test_cannot_create_note_with_existing_slug(self):
+        duplicate_data = {
+            'title': 'Duplicate Note',
+            'text': 'Duplicate note text',
+            'slug': self.note.slug,
+        }
+        notes_count_before = Note.objects.count()
+        response = self.client.post(reverse('notes:add'), data=duplicate_data)
+        self.assertEqual(Note.objects.count(), notes_count_before)
+        self.assertEqual(response.status_code, 200)
+        expected_error = (
+            f'{self.note.slug} - такой slug уже существует, '
+            f'придумайте уникальное значение!'
+        )
+        self.assertFormError(
+            response,
+            form='form',
+            field='slug',
+            errors=expected_error
+        )
 
-@pytest.mark.django_db
-def test_user_cannot_delete_another_user_note(
-    another_user_client,
-    note
-):
-    """Пользователь не может удалить чужую заметку."""
-    url = reverse('notes:delete', kwargs={'slug': note.slug})
-    notes_count_before = Note.objects.count()
-    response = another_user_client.post(url)
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert Note.objects.count() == notes_count_before, (
-        "Количество заметок не должно измениться"
-    )
-    assert Note.objects.filter(slug=note.slug).exists(), (
-        "Заметка не должна быть удалена другим пользователем"
-    )
+    def test_slug_is_generated_if_not_provided(self):
+        data_without_slug = {'title': 'Новая заметка', 'text': 'Текст заметки'}
+        notes_count_before = Note.objects.count()
+        response = self.client.post(
+            reverse('notes:add'),
+            data=data_without_slug
+        )
+        self.assertRedirects(response, reverse('notes:success'))
+        self.assertEqual(Note.objects.count(), notes_count_before + 1)
+        note = Note.objects.get(title='Новая заметка')
+        expected_slug = slugify(data_without_slug['title'])
+        self.assertEqual(note.slug, expected_slug)
+
+    def test_user_can_edit_own_note(self):
+        new_data = {
+            'title': 'Updated Title',
+            'text': 'Updated text',
+            'slug': self.note.slug,
+        }
+        response = self.client.post(
+            reverse('notes:edit', args=(self.note.slug,)), data=new_data
+        )
+        self.note.refresh_from_db()
+        self.assertRedirects(response, reverse('notes:success'))
+        self.assertEqual(self.note.title, new_data['title'])
+        self.assertEqual(self.note.text, new_data['text'])
+
+    def test_user_cannot_edit_others_note(self):
+        new_data = {
+            'title': 'Hacked Title',
+            'text': 'Hacked text',
+            'slug': self.another_note.slug,
+        }
+        response = self.client.post(
+            reverse(
+                'notes:edit',
+                args=(self.another_note.slug,)), data=new_data
+        )
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.another_note.refresh_from_db()
+        self.assertNotEqual(self.another_note.title, new_data['title'])
+
+    def test_user_can_delete_own_note(self):
+        response = self.client.post(
+            reverse('notes:delete', args=(self.note.slug,)), follow=True
+        )
+        self.assertRedirects(response, reverse('notes:success'))
+        self.assertFalse(Note.objects.filter(slug=self.note.slug).exists())
+
+    def test_user_cannot_delete_others_note(self):
+        response = self.client.post(
+            reverse('notes:delete', args=(self.another_note.slug,))
+        )
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertTrue(
+            Note.objects.filter(
+                slug=self.another_note.slug
+            ).exists()
+        )

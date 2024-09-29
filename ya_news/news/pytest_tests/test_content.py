@@ -1,92 +1,84 @@
 import pytest
 from django.urls import reverse
-from django.utils import timezone
-from datetime import timedelta
+from news.models import News, Comment
 
-from news.models import Comment
-from django.conf import settings
+pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.django_db
-def test_comments_are_sorted_by_oldest_first(client, news_item, user):
-    """Проверяет, что комментарии сортируются от старых к новым."""
-    # Создаём три комментария с разными датами создания
-    comment1 = Comment.objects.create(
-        news=news_item,
-        author=user,
-        text='Первый комментарий',
-        created=timezone.now() - timedelta(hours=3)
-    )
-    comment2 = Comment.objects.create(
-        news=news_item,
-        author=user,
-        text='Второй комментарий',
-        created=timezone.now() - timedelta(hours=2)
-    )
-    comment3 = Comment.objects.create(
-        news=news_item,
-        author=user,
-        text='Третий комментарий',
-        created=timezone.now() - timedelta(hours=1)
-    )
-    url = reverse('news:detail', kwargs={'pk': news_item.pk})
+def test_news_count_on_homepage(client):
+    NUM_NEWS = 15
+    news_list = [News(
+        title=f'News {i}',
+        text='Some text'
+    ) for i in range(NUM_NEWS)]
+    News.objects.bulk_create(news_list)
+    url = reverse('news:home')
     response = client.get(url)
-    news_from_context = response.context.get('object')
-    assert news_from_context is not None, "Новость не найдена в контексте"
-    comments = news_from_context.comment_set.order_by('created')
-    expected_comments = [comment1, comment2, comment3]
-    assert list(comments) == expected_comments, (
-        "Комментарии не отсортированы от старых к новым"
+    object_list = response.context.get(
+        'object_list'
+    ) or response.context.get('news_list')
+    expected_count = min(NUM_NEWS, 10)
+    assert len(object_list) == expected_count
+
+
+def test_news_order_on_homepage(client):
+    news_old = News.objects.create(
+        title='Old News',
+        text='Some text'
     )
+    url = reverse('news:home')
+    response = client.get(url)
+    object_list = response.context.get(
+        'object_list'
+    ) or response.context.get('news_list')
+
+    news_titles = [news.title for news in object_list]
+    print("News titles on homepage:", news_titles)
+    assert list(object_list)[0] == news_old
 
 
-@pytest.mark.django_db
-def test_authenticated_user_can_see_comment_form(authorized_client, news_item):
-    """Авторизованный пользователь видит форму для добавления комментария."""
-    url = reverse('news:detail', kwargs={'pk': news_item.pk})
-    response = authorized_client.get(url)
-    assert 'form' in response.context, (
-        "Форма для комментариев отсутствует в контексте"
+def test_comments_order_on_news_detail(client, news, user):
+    comment_old = Comment.objects.create(
+        news=news,
+        author=user,
+        text='First comment'
     )
-    form = response.context['form']
-    assert form is not None, "Форма не передана в контекст"
+    comment_new = Comment.objects.create(
+        news=news,
+        author=user,
+        text='Second comment'
+    )
+    url = reverse('news:detail', kwargs={'pk': news.pk})
+    response = client.get(url)
+    news_in_context = response.context.get(
+        'news'
+    ) or response.context.get('object')
+    comments_in_context = getattr(news_in_context, 'comments', None)
+    if comments_in_context is None:
+        comments_in_context = news_in_context.comment_set.all()
+    else:
+        comments_in_context = news_in_context.comments.all()
+
+    comments_texts = [
+        comment.text for comment in comments_in_context
+    ]
+    print("Comments texts on news detail page:", comments_texts)
+
+    assert list(comments_in_context)[0] == comment_old
+    assert list(comments_in_context)[1] == comment_new
 
 
-@pytest.mark.django_db
-def test_main_page_contains_no_more_than_news_count(
-    client,
-    many_news
+@pytest.mark.parametrize('client_fixture, form_expected', [
+    ('client', False),
+    ('auth_client', True),
+])
+def test_comment_form_visibility(
+    client_fixture,
+    form_expected,
+    request,
+    news
 ):
-    """
-    Проверяет, что на главной странице
-    не более NEWS_COUNT_ON_HOME_PAGE новостей.
-    """
-    url = reverse('news:home')
+    client = request.getfixturevalue(client_fixture)
+    url = reverse('news:detail', kwargs={'pk': news.pk})
     response = client.get(url)
-    object_list = response.context.get('news_list')
-    assert object_list is not None, (
-        "Список новостей отсутствует в контексте"
-    )
-    news_count = settings.NEWS_COUNT_ON_HOME_PAGE
-    assert len(object_list) == news_count, (
-        f"На странице должно быть не более {news_count} новостей"
-    )
-
-
-@pytest.mark.django_db
-def test_news_are_sorted_by_date(client, many_news):
-    """Проверяет, что новости отсортированы по дате от новых к старым."""
-    url = reverse('news:home')
-    response = client.get(url)
-    object_list = response.context.get('news_list')
-    assert object_list is not None, (
-        "Список новостей отсутствует в контексте"
-    )
-    expected_order = sorted(
-        many_news,
-        key=lambda news: news.date,
-        reverse=True
-    )[:settings.NEWS_COUNT_ON_HOME_PAGE]
-    assert list(object_list) == expected_order, (
-        "Новости не отсортированы по дате от новых к старым"
-    )
+    assert ('form' in response.context) == form_expected

@@ -1,124 +1,104 @@
-import pytest
-from django.urls import reverse
 from http import HTTPStatus
-from django.conf import settings
+
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from notes.models import Note
+
+User = get_user_model()
 
 
-@pytest.mark.django_db
-@pytest.mark.parametrize('url_name', [
-    'notes:home',
-    'users:login',
-    'users:logout',
-    'users:signup',
-])
-def test_pages_accessible_by_anonymous_user(client, url_name):
-    """Страницы доступны анонимному пользователю."""
-    url = reverse(url_name)
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.OK
+class TestRoutes(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.author = User.objects.create_user(
+            username='author',
+            password='pass'
+        )
+        cls.another_user = User.objects.create_user(
+            username='another_user',
+            password='pass'
+        )
 
+        cls.note = Note.objects.create(
+            title='Test Note',
+            text='Note text',
+            slug='test-note',
+            author=cls.author
+        )
 
-@pytest.mark.django_db
-def test_notes_list_redirects_anonymous_user_to_login(client):
-    """
-    Анонимный пользователь перенаправляется на страницу логина
-    при попытке доступа к списку заметок.
-    """
-    url = reverse('notes:list')
-    login_url = str(settings.LOGIN_URL)
-    expected_redirect_url = f"{login_url}?next={url}"
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == expected_redirect_url
+        cls.author_client = Client()
+        cls.author_client.force_login(cls.author)
 
+        cls.another_client = Client()
+        cls.another_client.force_login(cls.another_user)
 
-@pytest.mark.django_db
-@pytest.mark.parametrize('url_name', ['notes:add', 'notes:success'])
-def test_anonymous_user_redirected_to_login_on_restricted_pages(
-    client,
-    url_name
-):
-    """
-    Анонимный пользователь перенаправляется на страницу логина
-    при попытке доступа к закрытым страницам.
-    """
-    url = reverse(url_name)
-    login_url = str(settings.LOGIN_URL)
-    expected_redirect_url = f"{login_url}?next={url}"
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == expected_redirect_url
+    def test_home_page_accessible_to_anonymous(self):
+        url = reverse('notes:home')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
+    def test_authorized_user_pages_accessible(self):
+        urls = (
+            ('notes:list', None),
+            ('notes:add', None),
+            ('notes:success', None),
+        )
+        for name, args in urls:
+            with self.subTest(name=name):
+                url = reverse(name)
+                response = self.author_client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
-@pytest.mark.django_db
-def test_anonymous_user_redirected_to_login_on_note_detail(
-    client,
-    note
-):
-    """
-    Анонимный пользователь перенаправляется на страницу логина
-    при попытке доступа к деталям заметки.
-    """
-    url = reverse('notes:detail', kwargs={'slug': note.slug})
-    login_url = str(settings.LOGIN_URL)
-    expected_redirect_url = f"{login_url}?next={url}"
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == expected_redirect_url
+    def test_note_pages_accessible_only_to_author(self):
 
+        note_slug = self.note.slug
+        urls = (
+            ('notes:detail', (note_slug,)),
+            ('notes:edit', (note_slug,)),
+            ('notes:delete', (note_slug,)),
+        )
 
-@pytest.mark.django_db
-@pytest.mark.parametrize('client_fixture, expected_status', [
-    ('author_client', HTTPStatus.OK),
-    ('another_user_client', HTTPStatus.NOT_FOUND),
-])
-def test_note_detail_accessible_only_to_author(
-    request,
-    note,
-    client_fixture,
-    expected_status
-):
-    """
-    Страница заметки доступна только автору,
-    остальные получают 404.
-    """
-    client = request.getfixturevalue(client_fixture)
-    url = reverse('notes:detail', kwargs={'slug': note.slug})
-    response = client.get(url)
-    assert response.status_code == expected_status
+        for name, args in urls:
+            with self.subTest(name=name, user='author'):
+                url = reverse(name, args=args)
+                response = self.author_client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
+        for name, args in urls:
+            with self.subTest(name=name, user='another_user'):
+                url = reverse(name, args=args)
+                response = self.another_client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
 
-@pytest.mark.django_db
-@pytest.mark.parametrize('client_fixture, expected_status', [
-    ('author_client', HTTPStatus.OK),
-    ('another_user_client', HTTPStatus.NOT_FOUND),
-])
-@pytest.mark.parametrize('url_name', ['notes:edit', 'notes:delete'])
-def test_note_edit_delete_accessible_only_to_author(
-    request,
-    note,
-    client_fixture,
-    expected_status,
-    url_name
-):
-    """Страницы редактирования и удаления заметки доступны только автору."""
-    client = request.getfixturevalue(client_fixture)
-    url = reverse(url_name, kwargs={'slug': note.slug})
-    response = client.get(url)
-    assert response.status_code == expected_status
+    def test_redirects_for_anonymous_user(self):
 
+        login_url = reverse('users:login')
+        protected_urls = [
+            ('notes:list', None),
+            ('notes:add', None),
+            ('notes:success', None),
+            ('notes:detail', (self.note.slug,)),
+            ('notes:edit', (self.note.slug,)),
+            ('notes:delete', (self.note.slug,)),
+        ]
+        for name, args in protected_urls:
+            with self.subTest(name=name):
+                url = reverse(name, args=args)
+                response = self.client.get(url)
+                expected_redirect = f'{login_url}?next={url}'
+                self.assertRedirects(response, expected_redirect)
 
-@pytest.mark.django_db
-def test_authorized_user_can_access_notes_pages(author_client):
-    """
-    Авторизованный пользователь может
-    получить доступ к страницам заметок.
-    """
-    urls = [
-        reverse('notes:list'),
-        reverse('notes:add'),
-        reverse('notes:success'),
-    ]
-    for url in urls:
-        response = author_client.get(url)
-        assert response.status_code == HTTPStatus.OK
+    def test_public_pages_accessible_to_anonymous(self):
+
+        urls = (
+            ('users:signup', None),
+            ('users:login', None),
+            ('users:logout', None),
+        )
+        for name, args in urls:
+            with self.subTest(name=name):
+                url = reverse(name)
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
