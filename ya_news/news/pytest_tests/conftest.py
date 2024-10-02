@@ -1,6 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
+
 from news.models import News, Comment
+from news.forms import BAD_WORDS
 
 User = get_user_model()
 
@@ -22,13 +24,13 @@ def another_user(db):
 
 
 @pytest.fixture
-def auth_client(client, user):
+def author_client(client, user):
     client.force_login(user)
     return client
 
 
 @pytest.fixture
-def another_auth_client(client, another_user):
+def reader_client(client, another_user):
     client.force_login(another_user)
     return client
 
@@ -51,5 +53,5 @@ def comment(db, user, news):
 
 
 @pytest.fixture
-def forbidden_words():
-    return ['badword1', 'badword2', 'badword3']
+def bad_words():
+    return BAD_WORDS
