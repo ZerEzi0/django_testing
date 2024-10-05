@@ -34,70 +34,69 @@ class TestRoutes(TestCase):
         cls.another_client = Client()
         cls.another_client.force_login(cls.another_user)
 
-    def test_home_page_accessible_to_anonymous(self):
-        url = reverse('notes:home')
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
     def test_authorized_user_pages_accessible(self):
+        """Тест на доступность."""
         urls = (
-            ('notes:list', None),
-            ('notes:add', None),
-            ('notes:success', None),
+            'notes:list',
+            'notes:add',
+            'notes:success',
         )
-        for name, args in urls:
+        for name in urls:
             with self.subTest(name=name):
                 url = reverse(name)
                 response = self.author_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_note_pages_accessible_only_to_author(self):
-
+        """Тест на доступность только автору."""
         note_slug = self.note.slug
         urls = (
-            ('notes:detail', (note_slug,)),
-            ('notes:edit', (note_slug,)),
-            ('notes:delete', (note_slug,)),
+            'notes:detail',
+            'notes:edit',
+            'notes:delete',
         )
-
-        for name, args in urls:
-            with self.subTest(name=name, user='author'):
-                url = reverse(name, args=args)
-                response = self.author_client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
-
-        for name, args in urls:
-            with self.subTest(name=name, user='another_user'):
-                url = reverse(name, args=args)
-                response = self.another_client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        clients_statuses = (
+            (self.author_client, HTTPStatus.OK),
+            (self.another_client, HTTPStatus.NOT_FOUND),
+        )
+        for client, status in clients_statuses:
+            for name in urls:
+                with self.subTest(name=name, client=client):
+                    url = reverse(name, args=(note_slug,))
+                    response = client.get(url)
+                    self.assertEqual(response.status_code, status)
 
     def test_redirects_for_anonymous_user(self):
-
+        """Тест на переадресацию незалогининого пользорвателя."""
         login_url = reverse('users:login')
         protected_urls = [
-            ('notes:list', None),
-            ('notes:add', None),
-            ('notes:success', None),
-            ('notes:detail', (self.note.slug,)),
-            ('notes:edit', (self.note.slug,)),
-            ('notes:delete', (self.note.slug,)),
+            'notes:list',
+            'notes:add',
+            'notes:success',
+            'notes:detail',
+            'notes:edit',
+            'notes:delete',
         ]
-        for name, args in protected_urls:
+        note_slug = self.note.slug
+        for name in protected_urls:
             with self.subTest(name=name):
-                url = reverse(name, args=args)
+                if name in ('notes:detail', 'notes:edit', 'notes:delete'):
+                    url = reverse(name, args=(note_slug,))
+                else:
+                    url = reverse(name)
                 response = self.client.get(url)
                 expected_redirect = f'{login_url}?next={url}'
                 self.assertRedirects(response, expected_redirect)
 
     def test_public_pages_accessible_to_anonymous(self):
-
+        """Тест на доступность страниц анонимам."""
         urls = (
-            ('users:signup', None),
-            ('users:login', None),
-            ('users:logout', None),
+            'notes:home',
+            'users:signup',
+            'users:login',
+            'users:logout',
         )
-        for name, args in urls:
+        for name in urls:
             with self.subTest(name=name):
                 url = reverse(name)
                 response = self.client.get(url)

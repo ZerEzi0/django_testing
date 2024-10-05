@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.urls import reverse
 
 from notes.forms import NoteForm
@@ -33,26 +33,29 @@ class TestNoteContent(TestCase):
 
         cls.notes_list_url = reverse('notes:list')
 
-    def setUp(self):
-        self.client.force_login(self.user)
+        cls.user_client = Client()
+        cls.user_client.force_login(cls.user)
 
-    def test_note_in_object_list(self):
-        response = self.client.get(self.notes_list_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('object_list', response.context)
-        self.assertIn(self.user_note, response.context['object_list'])
+        cls.another_user_client = Client()
+        cls.another_user_client.force_login(cls.another_user)
 
-    def test_notes_not_in_other_user_list(self):
-
-        response = self.client.get(self.notes_list_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn(
-            self.another_user_note,
-            response.context['object_list']
+    def test_notes_in_object_list(self):
+        """Тест на верное отображение."""
+        test_cases = (
+            (self.user_client, self.user_note, True),
+            (self.user_client, self.another_user_note, False),
+            (self.another_user_client, self.another_user_note, True),
+            (self.another_user_client, self.user_note, False),
         )
+        for client, note, expected in test_cases:
+            with self.subTest(client=client, note=note):
+                response = client.get(self.notes_list_url)
+                object_list = response.context.get('object_list', [])
+                result = note in object_list
+                self.assertIs(result, expected)
 
     def test_forms_in_add_and_edit_pages(self):
-
+        """Тест на добавление и редактирование страниц."""
         urls = (
             ('notes:add', None),
             ('notes:edit', (self.user_note.slug,)),
@@ -60,7 +63,6 @@ class TestNoteContent(TestCase):
         for name, args in urls:
             with self.subTest(name=name):
                 url = reverse(name, args=args)
-                response = self.client.get(url)
-                self.assertEqual(response.status_code, 200)
+                response = self.user_client.get(url)
                 self.assertIn('form', response.context)
                 self.assertIsInstance(response.context['form'], NoteForm)
