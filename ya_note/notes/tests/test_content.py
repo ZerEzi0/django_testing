@@ -17,22 +17,16 @@ class TestNoteContent(TestCase):
             password='pass'
         )
 
-        cls.user_note = Note.objects.create(
+        cls.note = Note.objects.create(
             title='User Note',
             text='User note text',
             slug='user-note',
             author=cls.user
         )
 
-        cls.another_user_note = Note.objects.create(
-            title='Another User Note',
-            text='Another user note text',
-            slug='another-user-note',
-            author=cls.another_user
-        )
-
         cls.notes_list_url = reverse('notes:list')
 
+        # Создаём клиентов для каждого пользователя
         cls.user_client = Client()
         cls.user_client.force_login(cls.user)
 
@@ -40,25 +34,26 @@ class TestNoteContent(TestCase):
         cls.another_user_client.force_login(cls.another_user)
 
     def test_notes_in_object_list(self):
-        """Тест на верное отображение."""
+        """Тест на отображение заметки в списке заметок."""
         test_cases = (
-            (self.user_client, self.user_note, True),
-            (self.user_client, self.another_user_note, False),
-            (self.another_user_client, self.another_user_note, True),
-            (self.another_user_client, self.user_note, False),
+            (self.user_client, True),
+            (self.another_user_client, False),
         )
-        for client, note, expected in test_cases:
-            with self.subTest(client=client, note=note):
+        for client, expected in test_cases:
+            with self.subTest(client=client):
                 response = client.get(self.notes_list_url)
                 object_list = response.context.get('object_list', [])
-                result = note in object_list
+                result = self.note in object_list
                 self.assertIs(result, expected)
 
     def test_forms_in_add_and_edit_pages(self):
-        """Тест на добавление и редактирование страниц."""
+        """
+        Тест наличия формы на страницах
+        добавления и редактирования заметки.
+        """
         urls = (
             ('notes:add', None),
-            ('notes:edit', (self.user_note.slug,)),
+            ('notes:edit', (self.note.slug,)),
         )
         for name, args in urls:
             with self.subTest(name=name):

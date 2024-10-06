@@ -35,7 +35,7 @@ class TestRoutes(TestCase):
         cls.another_client.force_login(cls.another_user)
 
     def test_authorized_user_pages_accessible(self):
-        """Тест на доступность."""
+        """Тест на доступность страниц для авторизованного пользователя."""
         urls = (
             'notes:list',
             'notes:add',
@@ -48,7 +48,7 @@ class TestRoutes(TestCase):
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_note_pages_accessible_only_to_author(self):
-        """Тест на доступность только автору."""
+        """Тест на доступность страниц заметки только для автора."""
         note_slug = self.note.slug
         urls = (
             'notes:detail',
@@ -67,29 +67,29 @@ class TestRoutes(TestCase):
                     self.assertEqual(response.status_code, status)
 
     def test_redirects_for_anonymous_user(self):
-        """Тест на переадресацию незалогининого пользорвателя."""
+        """Тест на переадресацию незалогиненного пользователя."""
         login_url = reverse('users:login')
-        protected_urls = [
-            'notes:list',
-            'notes:add',
-            'notes:success',
-            'notes:detail',
-            'notes:edit',
-            'notes:delete',
-        ]
         note_slug = self.note.slug
-        for name in protected_urls:
+        protected_urls = [
+            ('notes:list', None),
+            ('notes:add', None),
+            ('notes:success', None),
+            ('notes:detail', (note_slug,)),
+            ('notes:edit', (note_slug,)),
+            ('notes:delete', (note_slug,)),
+        ]
+        for name, args in protected_urls:
             with self.subTest(name=name):
-                if name in ('notes:detail', 'notes:edit', 'notes:delete'):
-                    url = reverse(name, args=(note_slug,))
-                else:
-                    url = reverse(name)
+                url = reverse(name, args=args)
                 response = self.client.get(url)
                 expected_redirect = f'{login_url}?next={url}'
                 self.assertRedirects(response, expected_redirect)
 
     def test_public_pages_accessible_to_anonymous(self):
-        """Тест на доступность страниц анонимам."""
+        """
+        Тест на доступность публичных
+        страниц для анонимных пользователей.
+        """
         urls = (
             'notes:home',
             'users:signup',
