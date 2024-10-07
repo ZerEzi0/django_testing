@@ -53,7 +53,7 @@ class TestNoteLogic(TestCase):
         )
         self.assertRedirects(response, self.url_success)
         self.assertEqual(Note.objects.count(), notes_count_before + 1)
-        note = Note.objects.get(slug=self.note_data['slug'])
+        note = Note.objects.exclude(pk=self.note.pk).get()
         self.assertEqual(note.title, self.note_data['title'])
         self.assertEqual(note.text, self.note_data['text'])
         self.assertEqual(note.slug, self.note_data['slug'])
@@ -69,11 +69,8 @@ class TestNoteLogic(TestCase):
 
     def test_cannot_create_note_with_existing_slug(self):
         """Тест на создание заметки с уже существующим slug."""
-        data_with_existing_slug = {
-            'title': 'Another Note',
-            'text': 'Another note text',
-            'slug': self.note.slug,
-        }
+        data_with_existing_slug = self.note_data.copy()
+        data_with_existing_slug['slug'] = self.note.slug
         notes_count_before = Note.objects.count()
         response = self.authorized_client.post(
             self.url_add,
@@ -90,10 +87,8 @@ class TestNoteLogic(TestCase):
 
     def test_slug_is_generated_if_not_provided(self):
         """Тест на автоматическую генерацию slug."""
-        data_without_slug = {
-            'title': 'Новая заметка',
-            'text': 'Текст заметки',
-        }
+        data_without_slug = self.note_data.copy()
+        data_without_slug.pop('slug')
         notes_count_before = Note.objects.count()
         response = self.authorized_client.post(
             self.url_add,
@@ -101,20 +96,16 @@ class TestNoteLogic(TestCase):
         )
         self.assertRedirects(response, self.url_success)
         self.assertEqual(Note.objects.count(), notes_count_before + 1)
-        note = Note.objects.get(
-            title=data_without_slug['title'],
-            author=self.user
-        )
-        expected_slug = slugify(data_without_slug['title'])
+        note = Note.objects.exclude(pk=self.note.pk).get()
+        expected_slug = slugify(data_without_slug['title'])[:100]
         self.assertEqual(note.slug, expected_slug)
 
     def test_user_can_edit_own_note(self):
         """Тест на изменение собственной заметки пользователем."""
-        new_data = {
-            'title': 'Updated Title',
-            'text': 'Updated text',
-            'slug': 'updated-slug',
-        }
+        new_data = self.note_data.copy()
+        new_data['title'] = 'Updated Title'
+        new_data['text'] = 'Updated text'
+        new_data['slug'] = 'updated-slug'
         response = self.authorized_client.post(self.url_edit, data=new_data)
         self.assertRedirects(response, self.url_success)
         self.note.refresh_from_db()
@@ -124,11 +115,10 @@ class TestNoteLogic(TestCase):
 
     def test_user_cannot_edit_others_note(self):
         """Тест на изменение заметки другим пользователем."""
-        new_data = {
-            'title': 'Hacked Title',
-            'text': 'Hacked text',
-            'slug': 'hacked-slug',
-        }
+        new_data = self.note_data.copy()
+        new_data['title'] = 'Hacked Title'
+        new_data['text'] = 'Hacked text'
+        new_data['slug'] = 'hacked-slug'
         response = self.another_client.post(self.url_edit, data=new_data)
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         note_after = Note.objects.get(pk=self.note.pk)

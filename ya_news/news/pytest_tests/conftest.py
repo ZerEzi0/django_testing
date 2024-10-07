@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.urls import reverse
 
 from news.models import News, Comment
 
@@ -77,7 +78,6 @@ def news_list(db):
         for i in range(news_count)
     ]
     News.objects.bulk_create(news_list)
-    return news_list
 
 
 @pytest.fixture
@@ -94,4 +94,46 @@ def comment_list(user, news):
         for i in range(10)
     ]
     Comment.objects.bulk_create(comments)
-    return comments
+
+
+# Фикстуры для URL-адресов
+@pytest.fixture
+def news_home_url():
+    """Возвращает URL главной страницы новостей."""
+    return reverse('news:home')
+
+
+@pytest.fixture
+def news_detail_url(news):
+    """Возвращает URL страницы детали новости."""
+    return reverse('news:detail', kwargs={'pk': news.pk})
+
+
+@pytest.fixture
+def news_edit_url(comment):
+    """Возвращает URL страницы редактирования комментария."""
+    return reverse('news:edit', kwargs={'pk': comment.pk})
+
+
+@pytest.fixture
+def news_delete_url(comment):
+    """Возвращает URL страницы удаления комментария."""
+    return reverse('news:delete', kwargs={'pk': comment.pk})
+
+
+@pytest.fixture
+def users_login_url():
+    """Возвращает URL страницы входа."""
+    return reverse('users:login')
+
+
+@pytest.fixture
+def users_signup_url():
+    """Возвращает URL страницы регистрации."""
+    return reverse('users:signup')
+
+
+@pytest.fixture
+def users_logout_url():
+    """Возвращает URL страницы выхода."""
+    return reverse('users:logout')

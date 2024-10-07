@@ -1,5 +1,4 @@
 import pytest
-from django.urls import reverse
 from django.conf import settings
 
 from news.forms import CommentForm
@@ -7,25 +6,23 @@ from news.forms import CommentForm
 pytestmark = pytest.mark.django_db
 
 
-def test_news_count_on_homepage(client, news_list):
+def test_news_count_on_homepage(client, news_list, news_home_url):
     """
     Проверяет, что на главной странице не более
     NEWS_COUNT_ON_HOME_PAGE новостей.
     """
-    url = reverse('news:home')
-    response = client.get(url)
+    response = client.get(news_home_url)
     object_list = response.context.get('object_list')
     assert object_list is not None, 'В контексте отсутствует object_list'
-    assert len(object_list) == settings.NEWS_COUNT_ON_HOME_PAGE, (
-        f'Должно отображаться не более '
+    assert object_list.count() == settings.NEWS_COUNT_ON_HOME_PAGE, (
+        'Должно отображаться не более '
         f'{settings.NEWS_COUNT_ON_HOME_PAGE} новостей'
     )
 
 
-def test_news_order_on_homepage(client, news_list):
+def test_news_order_on_homepage(client, news_list, news_home_url):
     """Проверяет порядок новостей на главной странице от новых к старым."""
-    url = reverse('news:home')
-    response = client.get(url)
+    response = client.get(news_home_url)
     object_list = response.context.get('object_list')
     assert object_list is not None, 'В контексте отсутствует object_list'
 
@@ -36,10 +33,9 @@ def test_news_order_on_homepage(client, news_list):
     )
 
 
-def test_comments_order_on_news_detail(client, news, comment_list):
+def test_comments_order_on_news_detail(client, news_detail_url, comment_list):
     """Проверяет, что комментарии отображаются в порядке от старых к новым."""
-    url = reverse('news:detail', kwargs={'pk': news.pk})
-    response = client.get(url)
+    response = client.get(news_detail_url)
     news_in_context = response.context.get('object')
     assert news_in_context is not None, (
         'В контексте отсутствует объект новости'
@@ -56,10 +52,13 @@ def test_comments_order_on_news_detail(client, news, comment_list):
     (pytest.lazy_fixture('client'), False),
     (pytest.lazy_fixture('author_client'), True),
 ])
-def test_comment_form_visibility(client_fixture, form_expected, news):
+def test_comment_form_visibility(
+    client_fixture,
+    form_expected,
+    news_detail_url
+):
     """Проверяет видимость формы добавления комментария."""
-    url = reverse('news:detail', kwargs={'pk': news.pk})
-    response = client_fixture.get(url)
+    response = client_fixture.get(news_detail_url)
     has_form = 'form' in response.context
     assert has_form == form_expected
     if has_form:
