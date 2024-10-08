@@ -97,29 +97,24 @@ class TestNoteLogic(TestCase):
         self.assertRedirects(response, self.url_success)
         self.assertEqual(Note.objects.count(), notes_count_before + 1)
         note = Note.objects.exclude(pk=self.note.pk).get()
-        expected_slug = slugify(data_without_slug['title'])[:100]
+        expected_slug = slugify(data_without_slug['title'])
         self.assertEqual(note.slug, expected_slug)
 
     def test_user_can_edit_own_note(self):
         """Тест на изменение собственной заметки пользователем."""
-        new_data = self.note_data.copy()
-        new_data['title'] = 'Updated Title'
-        new_data['text'] = 'Updated text'
-        new_data['slug'] = 'updated-slug'
-        response = self.authorized_client.post(self.url_edit, data=new_data)
+        response = self.authorized_client.post(
+            self.url_edit,
+            data=self.note_data
+        )
         self.assertRedirects(response, self.url_success)
         self.note.refresh_from_db()
-        self.assertEqual(self.note.title, new_data['title'])
-        self.assertEqual(self.note.text, new_data['text'])
-        self.assertEqual(self.note.slug, new_data['slug'])
+        self.assertEqual(self.note.title, self.note_data['title'])
+        self.assertEqual(self.note.text, self.note_data['text'])
+        self.assertEqual(self.note.slug, self.note_data['slug'])
 
     def test_user_cannot_edit_others_note(self):
         """Тест на изменение заметки другим пользователем."""
-        new_data = self.note_data.copy()
-        new_data['title'] = 'Hacked Title'
-        new_data['text'] = 'Hacked text'
-        new_data['slug'] = 'hacked-slug'
-        response = self.another_client.post(self.url_edit, data=new_data)
+        response = self.another_client.post(self.url_edit, data=self.note_data)
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         note_after = Note.objects.get(pk=self.note.pk)
         self.assertEqual(note_after.title, self.note.title)

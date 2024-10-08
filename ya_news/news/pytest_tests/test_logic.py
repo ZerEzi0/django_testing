@@ -24,7 +24,12 @@ def test_anonymous_user_cannot_add_comment(
     assert Comment.objects.count() == 0
 
 
-def test_authorized_user_can_add_comment(author_client, user, news_detail_url):
+def test_authorized_user_can_add_comment(
+    author_client,
+    user,
+    news,
+    news_detail_url
+):
     """
     Проверяет, что авторизованный пользователь
     может добавить комментарий.
@@ -37,8 +42,7 @@ def test_authorized_user_can_add_comment(author_client, user, news_detail_url):
     assert Comment.objects.count() == 1
     comment = Comment.objects.get()
     assert comment.text == COMMENT_DATA['text']
-    news_id = int(news_detail_url.strip('/').split('/')[-1])
-    assert comment.news.pk == news_id
+    assert comment.news == news
     assert comment.author == user
 
 
@@ -64,11 +68,10 @@ def test_comment_with_bad_words_not_published(author_client, news_detail_url):
 def test_author_can_edit_comment(author_client, comment):
     """Проверяет, что автор комментария может его редактировать."""
     url = reverse('news:edit', kwargs={'pk': comment.pk})
-    new_comment_data = {'text': 'Edited comment text'}
-    response = author_client.post(url, data=new_comment_data)
+    response = author_client.post(url, data=COMMENT_DATA)
     assert response.status_code == HTTPStatus.FOUND
-    comment_after = Comment.objects.get(pk=comment.pk)
-    assert comment_after.text == new_comment_data['text']
+    comment.refresh_from_db()
+    assert comment.text == COMMENT_DATA['text']
 
 
 def test_author_can_delete_comment(author_client, comment):
@@ -83,11 +86,10 @@ def test_non_author_cannot_edit_comment(reader_client, comment):
     """Проверяет, что не автор комментария не может его редактировать."""
     url = reverse('news:edit', kwargs={'pk': comment.pk})
     original_text = comment.text
-    new_comment_data = {'text': 'Edited by non-author'}
-    response = reader_client.post(url, data=new_comment_data)
+    response = reader_client.post(url, data=COMMENT_DATA)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    comment_after = Comment.objects.get(pk=comment.pk)
-    assert comment_after.text == original_text
+    comment.refresh_from_db()
+    assert comment.text == original_text
 
 
 def test_non_author_cannot_delete_comment(reader_client, comment):
